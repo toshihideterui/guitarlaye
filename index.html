@@ -242,7 +242,6 @@ footer{text-align:center;padding:24px 0 60px;font-size:0.58rem;letter-spacing:0.
     <div class="lyrics-link">
       🎤 歌詞は著作権保護のため表示できません。以下で検索してください：<br>
       <a id="utanetLink" href="#" target="_blank" rel="noopener">🎵 歌ネットで検索</a>　／　
-      <a id="jlyricLink" href="#" target="_blank" rel="noopener">📖 J-Lyric.netで検索</a>　／　
       <a id="youtubeLink" href="#" target="_blank" rel="noopener">▶️ YouTubeで検索</a>
     </div>
 
@@ -594,7 +593,6 @@ function renderResult(r, originalQuery){
   const titleOnly=encodeURIComponent(r.title||'');
   const artistOnly=encodeURIComponent(r.artist||'');
   document.getElementById('utanetLink').href=`https://utaten.com/lyric/search?title=${titleOnly}&artist=${artistOnly}`;
-  document.getElementById('jlyricLink').href=`https://j-lyric.net/artist/?s=${query}`;
   document.getElementById('youtubeLink').href=`https://www.youtube.com/results?search_query=${query}+歌詞`;
 
   document.getElementById('resultPanel').className='result-panel show';
