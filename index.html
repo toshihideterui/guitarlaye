@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guitar Layer</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400&family=Noto+Serif+JP:wght@200;300;400&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#100c04">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<script>if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));</script>
+<style>
+:root{
+  --void:#100c04;--deep:#1c1408;--ink:#281e0c;
+  --wood:#c8943c;--wood-bright:#f0b85c;--wood-dim:#604010;
+  --gold:#d4a820;--gold-bright:#f0cc40;
+  --string:#e0d0a0;--fret:#806030;
+  --text:#f0e8d0;--text-dim:#806840;
+  --correct:#30b060;--muted:#e04040;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--void);color:var(--text);font-family:'Noto Serif JP',serif;font-weight:200;min-height:100vh;overflow-x:hidden;}
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;width:100%;height:100%;}
+.wrap{position:relative;z-index:1;max-width:720px;margin:0 auto;padding:0 20px;}
+
+header{text-align:center;padding:72px 0 28px;}
+.sigil{width:78px;height:78px;margin:0 auto 18px;}
+.sigil svg{width:100%;height:100%;animation:glow 3s ease-in-out infinite;}
+@keyframes glow{0%,100%{filter:drop-shadow(0 0 6px rgba(200,148,60,0.4))}50%{filter:drop-shadow(0 0 20px rgba(200,148,60,0.9))}}
+h1{font-family:'Cormorant Garamond',serif;font-weight:300;font-size:clamp(1.8rem,5vw,2.8rem);letter-spacing:0.25em;color:var(--wood-bright);text-shadow:0 0 30px rgba(200,148,60,0.5);margin-bottom:6px;}
+.subtitle{font-size:0.68rem;letter-spacing:0.28em;color:var(--text-dim);margin-bottom:28px;}
+
+.form-box{border:1px solid rgba(200,148,60,0.2);padding:24px;background:rgba(28,20,8,0.8);backdrop-filter:blur(10px);margin-bottom:20px;position:relative;}
+.corner{position:absolute;width:12px;height:12px;border-color:var(--wood-dim);border-style:solid;}
+.corner.tl{top:-1px;left:-1px;border-width:1px 0 0 1px;}
+.corner.tr{top:-1px;right:-1px;border-width:1px 1px 0 0;}
+.corner.bl{bottom:-1px;left:-1px;border-width:0 0 1px 1px;}
+.corner.br{bottom:-1px;right:-1px;border-width:0 1px 1px 0;}
+
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:0.62rem;letter-spacing:0.15em;color:var(--text-dim);margin-bottom:5px;}
+.field input,.field textarea,.field select{width:100%;background:rgba(200,148,60,0.05);border:1px solid rgba(200,148,60,0.18);border-radius:1px;color:var(--text);padding:10px 14px;outline:none;font-family:inherit;font-size:0.85rem;transition:border-color .3s;}
+.field input:focus{border-color:rgba(200,148,60,0.5);}
+.field select option{background:#1c1408;}
+
+.search-btn{width:100%;padding:15px;background:transparent;border:1px solid rgba(200,148,60,0.4);color:var(--wood-bright);font-family:inherit;font-size:0.85rem;letter-spacing:0.2em;cursor:pointer;transition:all .3s;touch-action:manipulation;}
+.search-btn:hover{background:rgba(200,148,60,0.08);border-color:rgba(200,148,60,0.7);box-shadow:0 0 20px rgba(200,148,60,0.15);}
+
+.error-msg{display:none;padding:10px 14px;border:1px solid rgba(224,64,64,0.3);color:#ff8060;font-size:0.72rem;line-height:1.8;margin-top:10px;}
+.error-msg.show{display:block;}
+
+/* ローディング */
+.loading{display:none;text-align:center;padding:50px 0;}
+.loading.show{display:block;}
+.guitar-icon{font-size:2.5rem;animation:strum 0.4s ease-in-out infinite alternate;}
+@keyframes strum{from{transform:rotate(-8deg)}to{transform:rotate(8deg)}}
+.loading-text{font-size:0.72rem;letter-spacing:0.25em;color:var(--text-dim);animation:ft 1.5s ease-in-out infinite;margin-top:16px;}
+@keyframes ft{0%,100%{opacity:0.3}50%{opacity:1}}
+
+/* 結果 */
+.result-panel{display:none;margin-bottom:24px;animation:fadeIn .7s ease;}
+.result-panel.show{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+
+/* 曲情報 */
+.song-header{border:1px solid rgba(200,148,60,0.25);padding:18px 20px;background:rgba(28,20,8,0.85);margin-bottom:16px;position:relative;}
+.song-title{font-family:'Cormorant Garamond',serif;font-size:clamp(1.3rem,4vw,1.9rem);letter-spacing:0.15em;color:var(--wood-bright);text-shadow:0 0 20px rgba(200,148,60,0.4);margin-bottom:4px;}
+.song-info{font-size:0.65rem;letter-spacing:0.12em;color:var(--text-dim);}
+
+/* コード進行 */
+.progression-wrap{border:1px solid rgba(200,148,60,0.15);padding:18px;background:rgba(28,20,8,0.7);margin-bottom:16px;}
+.section-title{font-size:0.62rem;letter-spacing:0.2em;color:var(--wood-bright);margin-bottom:12px;}
+.progression-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.chord-chip{padding:6px 14px;border:1px solid rgba(200,148,60,0.3);background:rgba(200,148,60,0.06);font-size:0.85rem;letter-spacing:0.08em;color:var(--text);cursor:pointer;transition:all .22s;touch-action:manipulation;}
+.chord-chip:hover,.chord-chip.active{border-color:var(--wood);color:var(--wood-bright);background:rgba(200,148,60,0.15);}
+.bar-line{color:rgba(200,148,60,0.3);font-size:0.9rem;display:flex;align-items:center;}
+
+/* コードダイアグラム */
+.diagrams-wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;}
+@media(max-width:400px){.diagrams-wrap{grid-template-columns:repeat(2,1fr);}}
+
+.diagram-card{border:1px solid rgba(200,148,60,0.15);padding:12px 8px;background:rgba(28,20,8,0.7);text-align:center;cursor:pointer;transition:all .22s;}
+.diagram-card.active{border-color:var(--wood);background:rgba(200,148,60,0.08);}
+.diagram-name{font-size:0.85rem;letter-spacing:0.1em;color:var(--wood-bright);margin-bottom:8px;font-weight:400;}
+.diagram-canvas{display:block;margin:0 auto;}
+
+/* 大きいダイアグラム表示 */
+.big-diagram{border:1px solid rgba(200,148,60,0.2);padding:20px;background:rgba(28,20,8,0.8);margin-bottom:16px;text-align:center;display:none;}
+.big-diagram.show{display:block;}
+.big-diagram-name{font-family:'Cormorant Garamond',serif;font-size:1.8rem;letter-spacing:0.15em;color:var(--wood-bright);margin-bottom:6px;}
+.big-diagram-type{font-size:0.65rem;letter-spacing:0.15em;color:var(--text-dim);margin-bottom:16px;}
+.finger-guide{display:flex;justify-content:center;gap:16px;margin-top:12px;flex-wrap:wrap;}
+.finger-item{font-size:0.65rem;color:var(--text-dim);text-align:center;}
+.finger-dot-preview{width:16px;height:16px;border-radius:50%;margin:0 auto 3px;display:flex;align-items:center;justify-content:center;font-size:0.55rem;color:white;}
+
+/* AI解説 */
+.ai-section{border:1px solid rgba(200,148,60,0.15);padding:18px;background:rgba(28,20,8,0.6);margin-bottom:16px;}
+.ai-text{font-size:0.83rem;line-height:2.1;letter-spacing:0.04em;color:var(--text);white-space:pre-wrap;}
+
+/* 歌詞サイトリンク */
+.lyrics-link{border:1px solid rgba(200,148,60,0.15);padding:14px 18px;background:rgba(200,148,60,0.04);margin-bottom:16px;font-size:0.75rem;line-height:1.9;color:var(--text-dim);}
+.lyrics-link a{color:var(--wood-bright);text-decoration:none;}
+
+.retry-btn{width:100%;padding:12px;background:transparent;border:1px solid rgba(200,148,60,0.22);color:var(--text-dim);font-family:inherit;font-size:0.75rem;letter-spacing:0.15em;cursor:pointer;transition:all .3s;touch-action:manipulation;}
+.retry-btn:hover{border-color:rgba(200,148,60,0.5);color:var(--text);}
+
+footer{text-align:center;padding:24px 0 60px;font-size:0.58rem;letter-spacing:0.15em;color:var(--text-dim);}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<div class="wrap">
+  <header>
+    <div class="sigil">
+      <svg viewBox="0 0 78 78" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="39" cy="39" r="36" stroke="#c8943c" stroke-width="0.6" opacity="0.5"/>
+        <circle cx="39" cy="39" r="26" stroke="#c8943c" stroke-width="0.3" opacity="0.3"/>
+        <!-- ギターシルエット -->
+        <ellipse cx="39" cy="52" rx="12" ry="14" fill="rgba(200,148,60,0.15)" stroke="#c8943c" stroke-width="1"/>
+        <ellipse cx="39" cy="52" rx="7" ry="8" fill="rgba(200,148,60,0.08)" stroke="#c8943c" stroke-width="0.6"/>
+        <circle cx="39" cy="52" r="2" fill="rgba(200,148,60,0.5)"/>
+        <!-- ネック -->
+        <rect x="37" y="22" width="4" height="26" rx="2" fill="rgba(200,148,60,0.2)" stroke="#c8943c" stroke-width="0.8"/>
+        <!-- フレット -->
+        <line x1="36" y1="26" x2="42" y2="26" stroke="#c8943c" stroke-width="0.6" opacity="0.6"/>
+        <line x1="36" y1="30" x2="42" y2="30" stroke="#c8943c" stroke-width="0.6" opacity="0.6"/>
+        <line x1="36" y1="34" x2="42" y2="34" stroke="#c8943c" stroke-width="0.6" opacity="0.6"/>
+        <!-- ヘッド -->
+        <rect x="36" y="16" width="6" height="8" rx="1" fill="rgba(200,148,60,0.15)" stroke="#c8943c" stroke-width="0.8"/>
+        <!-- 弦 -->
+        <line x1="38" y1="16" x2="38" y2="42" stroke="#c8943c" stroke-width="0.4" opacity="0.5"/>
+        <line x1="39" y1="16" x2="39" y2="42" stroke="#c8943c" stroke-width="0.4" opacity="0.5"/>
+        <line x1="40" y1="16" x2="40" y2="42" stroke="#c8943c" stroke-width="0.4" opacity="0.5"/>
+        <!-- 光線 -->
+        <line x1="39" y1="2" x2="39" y2="10" stroke="#c8943c" stroke-width="0.5" opacity="0.4"/>
+        <line x1="39" y1="68" x2="39" y2="76" stroke="#c8943c" stroke-width="0.5" opacity="0.4"/>
+        <line x1="2" y1="39" x2="10" y2="39" stroke="#c8943c" stroke-width="0.5" opacity="0.4"/>
+        <line x1="68" y1="39" x2="76" y2="39" stroke="#c8943c" stroke-width="0.5" opacity="0.4"/>
+      </svg>
+    </div>
+    <h1>Guitar Layer</h1>
+    <p class="subtitle">コード進行・ギターダイアグラム</p>
+  </header>
+
+  <div class="form-box" id="formBox">
+    <div class="corner tl"></div><div class="corner tr"></div>
+    <div class="corner bl"></div><div class="corner br"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="field" style="margin-bottom:0">
+        <label>🔵 Gemma APIキー</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="password" id="gemmaKey" placeholder="AIza..." style="flex:1;font-family:monospace;font-size:0.72rem;">
+          <button onclick="toggleGemma()" id="toggleGemmaBtn" style="padding:8px 10px;background:transparent;border:1px solid rgba(200,148,60,0.2);color:var(--text-dim);font-size:0.65rem;cursor:pointer;white-space:nowrap">表示</button>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>⚡ Groq APIキー</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <input type="password" id="apiKey" placeholder="gsk_..." style="flex:1;font-family:monospace;font-size:0.72rem;">
+          <button onclick="toggleKey()" id="toggleBtn" style="padding:8px 10px;background:transparent;border:1px solid rgba(200,148,60,0.2);color:var(--text-dim);font-size:0.65rem;cursor:pointer;white-space:nowrap">表示</button>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:0.6rem;color:var(--text-dim);margin-bottom:14px;line-height:1.8">どちらか一方のAPIキーがあれば動作します。両方入力するとGemmaを優先します。</p>
+
+    <div class="field">
+      <label>曲名・アーティスト名</label>
+      <input type="text" id="songName" placeholder="例：川の流れのように　美空ひばり">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="field" style="margin-bottom:0">
+        <label>カポタスト</label>
+        <select id="capo">
+          <option value="0">なし</option>
+          <option value="1">1カポ</option>
+          <option value="2">2カポ</option>
+          <option value="3">3カポ</option>
+          <option value="4">4カポ</option>
+          <option value="5">5カポ</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>難易度</label>
+        <select id="level">
+          <option value="初心者">初心者（簡単なコード）</option>
+          <option value="中級者" selected>中級者（標準）</option>
+          <option value="上級者">上級者（難しめ）</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="search-btn" onclick="searchChords()">🎸 コードを調べる</button>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <div class="loading" id="loadingEl">
+    <div class="guitar-icon">🎸</div>
+    <p class="loading-text">コードを解析中…</p>
+  </div>
+
+  <div class="result-panel" id="resultPanel">
+    <!-- 曲情報 -->
+    <div class="song-header" style="position:relative">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+      <div class="song-title" id="songTitle"></div>
+      <div class="song-info" id="songInfoText"></div>
+    </div>
+
+    <!-- コード進行 -->
+    <div class="progression-wrap">
+      <div class="section-title">🎵 コード進行</div>
+      <div id="progressionArea"></div>
+    </div>
+
+    <!-- 大きいダイアグラム -->
+    <div class="big-diagram" id="bigDiagram">
+      <div class="big-diagram-name" id="bigDiagramName"></div>
+      <div class="big-diagram-type" id="bigDiagramType"></div>
+      <canvas id="bigCanvas" width="200" height="220"></canvas>
+      <div class="finger-guide" id="fingerGuide"></div>
+    </div>
+
+    <!-- コードダイアグラム一覧 -->
+    <div class="progression-wrap">
+      <div class="section-title">🎯 コードダイアグラム（タップで拡大）</div>
+      <div class="diagrams-wrap" id="diagramsWrap"></div>
+    </div>
+
+    <!-- AI解説 -->
+    <div class="ai-section" style="position:relative">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+      <div class="section-title">💡 演奏のポイント</div>
+      <div class="ai-text" id="aiText"></div>
+    </div>
+
+    <!-- 歌詞サイトへのリンク -->
+    <div class="lyrics-link">
+      🎤 歌詞は著作権保護のため表示できません。以下で検索してください：<br>
+      <a id="lyricsJLink" href="#" target="_blank" rel="noopener">📖 J-Lyric.net で検索</a>　／　
+      <a id="utanetLink" href="#" target="_blank" rel="noopener">🎵 うたネットで検索</a>
+    </div>
+
+    <button class="retry-btn" onclick="retry()">🔄 別の曲を調べる</button>
+  </div>
+
+  <footer><p>Guitar Layer — コード進行・ギターダイアグラム</p></footer>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+// コードデータベース（主要コード）
+// ══════════════════════════════════════════
+// フォーマット: [フレット位置, 弦1(高E)〜弦6(低E), 開放=0, ミュート=-1]
+// fingers: [指番号1〜4, 0=開放]
+const CHORD_DB = {
+  // メジャーコード
+  'C':   {fret:0, strings:[0,1,0,2,3,-1], fingers:[0,1,0,2,3,0], name:'C', type:'メジャー'},
+  'D':   {fret:0, strings:[2,3,2,0,-1,-1], fingers:[1,3,2,0,0,0], name:'D', type:'メジャー'},
+  'E':   {fret:0, strings:[0,0,1,2,2,0], fingers:[0,0,1,3,2,0], name:'E', type:'メジャー'},
+  'F':   {fret:1, strings:[1,1,2,3,3,1], fingers:[1,1,2,4,3,1], name:'F', type:'メジャー（バレー）', barre:1},
+  'G':   {fret:0, strings:[3,0,0,0,2,3], fingers:[4,0,0,0,1,3], name:'G', type:'メジャー'},
+  'A':   {fret:0, strings:[0,2,2,2,0,-1], fingers:[0,3,2,1,0,0], name:'A', type:'メジャー'},
+  'B':   {fret:2, strings:[2,2,4,4,4,2], fingers:[1,1,3,4,2,1], name:'B', type:'メジャー（バレー）', barre:2},
+  // マイナーコード
+  'Am':  {fret:0, strings:[0,1,2,2,0,-1], fingers:[0,1,2,3,0,0], name:'Am', type:'マイナー'},
+  'Em':  {fret:0, strings:[0,0,0,2,2,0], fingers:[0,0,0,2,1,0], name:'Em', type:'マイナー'},
+  'Dm':  {fret:0, strings:[1,3,2,0,-1,-1], fingers:[1,3,2,0,0,0], name:'Dm', type:'マイナー'},
+  'Fm':  {fret:1, strings:[1,1,1,3,3,1], fingers:[1,1,1,3,2,1], name:'Fm', type:'マイナー（バレー）', barre:1},
+  'Gm':  {fret:3, strings:[3,3,5,5,5,3], fingers:[1,1,3,4,2,1], name:'Gm', type:'マイナー（バレー）', barre:3},
+  'Bm':  {fret:2, strings:[2,3,4,4,2,2], fingers:[1,2,4,3,1,1], name:'Bm', type:'マイナー（バレー）', barre:2},
+  // セブンス
+  'G7':  {fret:0, strings:[1,0,0,0,2,3], fingers:[1,0,0,0,2,3], name:'G7', type:'セブンス'},
+  'C7':  {fret:0, strings:[0,1,3,2,3,-1], fingers:[0,1,3,2,4,0], name:'C7', type:'セブンス'},
+  'D7':  {fret:0, strings:[2,1,2,0,-1,-1], fingers:[2,1,3,0,0,0], name:'D7', type:'セブンス'},
+  'E7':  {fret:0, strings:[0,0,1,0,2,0], fingers:[0,0,1,0,2,0], name:'E7', type:'セブンス'},
+  'A7':  {fret:0, strings:[0,2,0,2,0,-1], fingers:[0,2,0,1,0,0], name:'A7', type:'セブンス'},
+  'B7':  {fret:0, strings:[2,0,2,1,2,-1], fingers:[3,0,4,1,2,0], name:'B7', type:'セブンス'},
+  'F7':  {fret:1, strings:[1,1,2,1,3,1], fingers:[1,1,2,1,3,1], name:'F7', type:'セブンス（バレー）', barre:1},
+  // add9・sus4など
+  'Cadd9':{fret:0, strings:[0,3,0,2,3,-1], fingers:[0,4,0,2,3,0], name:'Cadd9', type:'アドナイン'},
+  'Dsus4':{fret:0, strings:[3,3,2,0,-1,-1], fingers:[3,4,1,0,0,0], name:'Dsus4', type:'サスフォー'},
+  'Asus4':{fret:0, strings:[0,3,2,2,0,-1], fingers:[0,4,2,1,0,0], name:'Asus4', type:'サスフォー'},
+};
+
+// ストレージ
+function storageSave(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+function storageLoad(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+
+function toggleKey(){
+  const el=document.getElementById('apiKey');
+  const btn=document.getElementById('toggleBtn');
+  const isPassword=el.type==='password';
+  el.type=isPassword?'text':'password';
+  btn.textContent=isPassword?'隠す':'表示';
+}
+function toggleGemma(){
+  const el=document.getElementById('gemmaKey');
+  const btn=document.getElementById('toggleGemmaBtn');
+  const isPassword=el.type==='password';
+  el.type=isPassword?'text':'password';
+  btn.textContent=isPassword?'隠す':'表示';
+}
+
+// ── 共通AI呼び出し（Gemma優先・Groqフォールバック）
+async function callAI(prompt){
+  const gemmaKey=document.getElementById('gemmaKey').value.trim();
+  const groqKey=document.getElementById('apiKey').value.trim();
+
+  // Gemma（Gemini API経由）
+  if(gemmaKey){
+    try{
+      const res=await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent?key=${gemmaKey}`,
+        {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            contents:[{parts:[{text:prompt}]}],
+            generationConfig:{maxOutputTokens:1500,temperature:0.5}
+          })
+        }
+      );
+      const data=await res.json();
+      const text=data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if(res.ok&&text) return text;
+    }catch(e){}
+  }
+
+  // Groq（フォールバック）
+  if(groqKey){
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+groqKey},
+      body:JSON.stringify({
+        model:'llama-3.3-70b-versatile',
+        max_tokens:1500, temperature:0.5,
+        messages:[{role:'user',content:prompt}]
+      })
+    });
+    const data=await res.json();
+    const text=data.choices?.[0]?.message?.content;
+    if(res.ok&&text) return text;
+    throw new Error(data.error?.message||'API エラー');
+  }
+
+  throw new Error('APIキーを入力してください');
+}
+
+// ══════════════════════════════════════════
+// コードダイアグラム描画
+// ══════════════════════════════════════════
+function drawChordDiagram(canvas, chordName, small=false){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // コードデータ取得（DBになければシンプルな表示）
+  const chord=CHORD_DB[chordName];
+
+  const STRINGS=6, FRETS=4;
+  const padL=small?18:28, padR=small?8:14;
+  const padT=small?18:28, padB=small?14:20;
+  const gridW=W-padL-padR;
+  const gridH=H-padT-padB;
+  const sw=gridW/(STRINGS-1); // 弦間隔
+  const fh=gridH/FRETS;       // フレット間隔
+
+  // 背景
+  ctx.fillStyle='rgba(28,20,8,0)';
+  ctx.fillRect(0,0,W,H);
+
+  if(!chord){
+    // DBにないコードは名前だけ表示
+    ctx.fillStyle='rgba(200,148,60,0.5)';
+    ctx.font=`${small?10:14}px serif`;
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(chordName, W/2, H/2);
+    return;
+  }
+
+  const startFret=chord.fret||0;
+
+  // フレット番号表示（バレーの場合）
+  if(startFret>0){
+    ctx.fillStyle='rgba(200,148,60,0.7)';
+    ctx.font=`${small?8:11}px sans-serif`;
+    ctx.textAlign='right';
+    ctx.textBaseline='middle';
+    ctx.fillText(startFret+'fr', padL-3, padT+fh*0.5);
+  }
+
+  // ナット（1フレット目の上の太線）
+  if(startFret===0){
+    ctx.fillStyle='rgba(200,148,60,0.8)';
+    ctx.fillRect(padL-1, padT-3, gridW+2, small?3:5);
+  }
+
+  // フレット線
+  for(let f=0;f<=FRETS;f++){
+    const y=padT+f*fh;
+    ctx.strokeStyle=f===0?'rgba(200,148,60,0.6)':'rgba(200,148,60,0.25)';
+    ctx.lineWidth=f===0?1.5:0.8;
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(padL+gridW,y); ctx.stroke();
+  }
+
+  // 弦（縦線）
+  for(let s=0;s<STRINGS;s++){
+    const x=padL+s*sw;
+    ctx.strokeStyle='rgba(224,208,160,0.4)';
+    ctx.lineWidth=0.8;
+    ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,padT+gridH); ctx.stroke();
+  }
+
+  // バレー表示
+  if(chord.barre){
+    const barreStr=chord.strings.filter(s=>s===1||s===chord.barre).length;
+    const y=padT+fh*0.5;
+    const x1=padL;
+    const x2=padL+gridW;
+    ctx.strokeStyle='rgba(200,148,60,0.7)';
+    ctx.lineWidth=small?8:12;
+    ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x2,y); ctx.stroke();
+  }
+
+  // 押さえる点
+  const strings=chord.strings; // 高E=0, 低E=5
+  strings.forEach((fretPos,i)=>{
+    const x=padL+(5-i)*sw; // 低E側から
+    if(fretPos===-1){
+      // ミュート（×）
+      const y=padT-10;
+      ctx.strokeStyle='rgba(224,64,64,0.7)';
+      ctx.lineWidth=1.2;
+      const d=small?4:5;
+      ctx.beginPath(); ctx.moveTo(x-d,y-d); ctx.lineTo(x+d,y+d); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+d,y-d); ctx.lineTo(x-d,y+d); ctx.stroke();
+    } else if(fretPos===0){
+      // 開放弦（○）
+      const y=padT-10;
+      ctx.strokeStyle='rgba(200,148,60,0.7)';
+      ctx.lineWidth=1.2;
+      ctx.beginPath(); ctx.arc(x,y,small?3:4,0,Math.PI*2); ctx.stroke();
+    } else {
+      // 押さえる（●）
+      const relFret=fretPos-startFret;
+      if(relFret>=1&&relFret<=FRETS){
+        const y=padT+(relFret-0.5)*fh;
+        const r=Math.min(sw,fh)*0.35;
+        // グラデーション風の丸
+        const grd=ctx.createRadialGradient(x-r*0.3,y-r*0.3,r*0.1,x,y,r);
+        grd.addColorStop(0,'rgba(240,184,92,0.95)');
+        grd.addColorStop(1,'rgba(160,100,20,0.9)');
+        ctx.fillStyle=grd;
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+        // 指番号
+        if(!small&&chord.fingers&&chord.fingers[i]>0){
+          ctx.fillStyle='rgba(20,10,0,0.9)';
+          ctx.font=`bold ${Math.round(r*1.1)}px sans-serif`;
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(chord.fingers[i], x, y);
+        }
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+// メイン処理
+// ══════════════════════════════════════════
+let currentChords=[];
+
+async function searchChords(){
+  const gemmaKey=document.getElementById('gemmaKey').value.trim();
+  const groqKey=document.getElementById('apiKey').value.trim();
+
+  document.getElementById('errorMsg').className='error-msg';
+  if(!gemmaKey&&!groqKey){showError('GeminiまたはGroqのAPIキーを入力してください');return;}
+  if(!songName){showError('曲名を入力してください');return;}
+  if(gemmaKey) storageSave('guitarlayer_gemma',gemmaKey);
+  if(groqKey) storageSave('guitarlayer_key',groqKey);
+
+  document.getElementById('formBox').style.display='none';
+  document.getElementById('loadingEl').className='loading show';
+
+  const prompt=`あなたはギター講師です。
+以下の曲のコード進行とギター演奏情報を提供してください。
+
+【曲名・アーティスト】${songName}
+【カポタスト】${capo==='0'?'なし':capo+'カポ'}
+【難易度】${level}
+
+以下のJSON形式のみで返答してください（他の文字は一切不要）：
+{
+  "title": "曲名",
+  "artist": "アーティスト名",
+  "key": "キー（例：G, Am）",
+  "tempo": "テンポ（例：BPM=120 ミディアム）",
+  "capo": "${capo}",
+  "sections": [
+    {
+      "name": "イントロ",
+      "chords": ["G", "C", "D", "G"]
+    },
+    {
+      "name": "Aメロ",
+      "chords": ["G", "Em", "C", "D", "G", "Em", "Am", "D"]
+    },
+    {
+      "name": "サビ",
+      "chords": ["G", "C", "G", "D", "Em", "C", "D", "G"]
+    }
+  ],
+  "uniqueChords": ["G", "C", "D", "Em", "Am"],
+  "strumPattern": "ストロークパターン（例：↓↓↑↓↑）",
+  "tips": "この曲を演奏するためのポイント・コツ（200文字程度）"
+}
+uniqueChordsは曲で使用するコードの重複なしリスト。
+コードは標準的なギターコード名で（C, Dm, G7, Am, Bm, Fなど）。`;
+
+  try{
+    const raw=await callAI(prompt);
+    const jsonMatch=raw.match(/\{[\s\S]*\}/);
+    if(!jsonMatch) throw new Error('データの解析に失敗しました');
+    const result=JSON.parse(jsonMatch[0]);
+
+    document.getElementById('loadingEl').className='loading';
+    renderResult(result, songName);
+
+  }catch(err){
+    document.getElementById('loadingEl').className='loading';
+    document.getElementById('formBox').style.display='block';
+    showError('エラー: '+err.message.slice(0,80));
+  }
+}
+
+// ══════════════════════════════════════════
+// 結果描画
+// ══════════════════════════════════════════
+function renderResult(r, originalQuery){
+  // 曲情報
+  document.getElementById('songTitle').textContent=`${r.title||''} / ${r.artist||''}`;
+  const capoText=r.capo&&r.capo!=='0'?` ／ ${r.capo}カポ`:'';
+  document.getElementById('songInfoText').textContent=
+    `Key: ${r.key||''}　${r.tempo||''}${capoText}　ストローク: ${r.strumPattern||''}`;
+
+  // コード進行
+  const progArea=document.getElementById('progressionArea');
+  progArea.innerHTML=(r.sections||[]).map(sec=>`
+    <div style="margin-bottom:14px">
+      <div style="font-size:0.6rem;letter-spacing:0.15em;color:var(--text-dim);margin-bottom:6px">${sec.name}</div>
+      <div class="progression-row">
+        ${(sec.chords||[]).map((c,i)=>`
+          <span class="chord-chip" onclick="showBigDiagram('${c}')">${c}</span>
+          ${(i+1)%4===0&&i<sec.chords.length-1?'<span class="bar-line">｜</span>':''}
+        `).join('')}
+      </div>
+    </div>`).join('');
+
+  // コードダイアグラム一覧
+  currentChords=r.uniqueChords||[];
+  const diagWrap=document.getElementById('diagramsWrap');
+  diagWrap.innerHTML=currentChords.map(chord=>{
+    const c=CHORD_DB[chord];
+    const frets=c?Math.max(...c.strings.filter(s=>s>0)):0;
+    const h=frets>=4?110:100;
+    return `<div class="diagram-card" id="card-${chord}" onclick="showBigDiagram('${chord}')">
+      <div class="diagram-name">${chord}</div>
+      <canvas class="diagram-canvas" id="diag-${chord}" width="90" height="${h}"></canvas>
+    </div>`;
+  }).join('');
+
+  // 各ダイアグラムを描画
+  currentChords.forEach(chord=>{
+    const canvas=document.getElementById(`diag-${chord}`);
+    if(canvas) drawChordDiagram(canvas,chord,true);
+  });
+
+  // AI解説
+  document.getElementById('aiText').textContent=r.tips||'';
+
+  // 歌詞リンク
+  const query=encodeURIComponent(`${r.title||''} ${r.artist||''}`);
+  document.getElementById('lyricsJLink').href=`https://j-lyric.net/artist/?s=${query}`;
+  document.getElementById('utanetLink').href=`https://utaten.com/search?title=${query}`;
+
+  document.getElementById('resultPanel').className='result-panel show';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ══════════════════════════════════════════
+// 大きいダイアグラム表示
+// ══════════════════════════════════════════
+function showBigDiagram(chordName){
+  document.querySelectorAll('.diagram-card').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.chord-chip').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll(`.chord-chip`).forEach(c=>{if(c.textContent===chordName)c.classList.add('active');});
+  const card=document.getElementById(`card-${chordName}`);
+  if(card) card.classList.add('active');
+
+  const chord=CHORD_DB[chordName];
+  document.getElementById('bigDiagramName').textContent=chordName;
+  document.getElementById('bigDiagramType').textContent=chord?chord.type:'';
+
+  const bigCanvas=document.getElementById('bigCanvas');
+  drawChordDiagram(bigCanvas,chordName,false);
+
+  // 指使いガイド
+  const guide=document.getElementById('fingerGuide');
+  if(chord&&chord.fingers){
+    const fingerNames=['人差し指','中指','薬指','小指'];
+    const used={};
+    chord.fingers.forEach((f,i)=>{
+      if(f>0&&chord.strings[i]>0){
+        if(!used[f]) used[f]=[];
+        used[f].push('EADGBE'[5-i]);
+      }
+    });
+    guide.innerHTML=Object.entries(used).map(([f,strings])=>`
+      <div class="finger-item">
+        <div class="finger-dot-preview" style="background:rgba(200,148,60,0.8)">${f}</div>
+        ${fingerNames[parseInt(f)-1]||''}<br>${strings.join(',')}弦
+      </div>`).join('');
+  } else {
+    guide.innerHTML='';
+  }
+
+  document.getElementById('bigDiagram').className='big-diagram show';
+  document.getElementById('bigDiagram').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function retry(){
+  document.getElementById('resultPanel').className='result-panel';
+  document.getElementById('bigDiagram').className='big-diagram';
+  document.getElementById('formBox').style.display='block';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function showError(msg){
+  const el=document.getElementById('errorMsg');
+  el.textContent=msg; el.className='error-msg show';
+}
+
+// ══════════════════════════════════════════
+// Background Canvas（音符が流れる）
+// ══════════════════════════════════════════
+(function(){
+  const canvas=document.getElementById('bgCanvas');
+  const ctx=canvas.getContext('2d');
+  function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight;}
+  resize(); window.addEventListener('resize',()=>{resize();init();});
+
+  const NOTES=['♩','♪','♫','♬','𝄞','𝄢','♭','♯','𝅘𝅥𝅮'];
+
+  let particles=[];
+
+  function makeNote(){
+    return {
+      x: Math.random()*canvas.width,
+      y: canvas.height+20,
+      char: NOTES[Math.floor(Math.random()*NOTES.length)],
+      size: Math.random()*20+10,
+      speed: Math.random()*0.8+0.3,
+      vx: (Math.random()-0.5)*0.6,
+      rotate: Math.random()*Math.PI*2,
+      rotateSpeed: (Math.random()-0.5)*0.03,
+      alpha: Math.random()*0.35+0.1,
+      color: Math.random()<0.5?'#f0b85c':Math.random()<0.5?'#f0cc40':'#c8943c',
+    };
+  }
+
+  function init(){
+    particles=[];
+    const N=Math.floor(canvas.width/40)+8;
+    for(let i=0;i<N;i++){
+      const p=makeNote();
+      p.y=Math.random()*canvas.height; // 最初はランダム配置
+      particles.push(p);
+    }
+  }
+  init();
+
+  let frame=0;
+  function draw(){
+    ctx.fillStyle='rgba(16,12,4,0.18)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    if(frame===0){ctx.fillStyle='#100c04';ctx.fillRect(0,0,canvas.width,canvas.height);}
+
+    particles.forEach(p=>{
+      // 上に流れる
+      p.y-=p.speed;
+      p.x+=p.vx;
+      p.rotate+=p.rotateSpeed;
+
+      // 画面外に出たらリセット
+      if(p.y<-30||p.x<-30||p.x>canvas.width+30){
+        Object.assign(p,makeNote());
+      }
+
+      ctx.save();
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rotate);
+      ctx.globalAlpha=p.alpha;
+      ctx.fillStyle=p.color;
+      ctx.font=`${p.size}px serif`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(p.char,0,0);
+      ctx.restore();
+    });
+
+    ctx.globalAlpha=1;
+    frame++; requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// APIキー復元
+window.addEventListener('DOMContentLoaded',()=>{
+  const k=storageLoad('guitarlayer_key');
+  if(k) document.getElementById('apiKey').value=k;
+  const g=storageLoad('guitarlayer_gemma');
+  if(g) document.getElementById('gemmaKey').value=g;
+});
+</script>
+</body>
+</html>
