@@ -479,6 +479,9 @@ let currentChords=[];
 async function searchChords(){
   const gemmaKey=document.getElementById('gemmaKey').value.trim();
   const groqKey=document.getElementById('apiKey').value.trim();
+  const songName=document.getElementById('songName').value.trim();
+  const capo=document.getElementById('capo').value;
+  const level=document.getElementById('level').value;
 
   document.getElementById('errorMsg').className='error-msg';
   if(!gemmaKey&&!groqKey){showError('GeminiまたはGroqのAPIキーを入力してください');return;}
